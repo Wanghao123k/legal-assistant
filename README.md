@@ -36,6 +36,7 @@
 |---|---|
 | [`docs/architecture.md`](docs/architecture.md) | 整体架构设计（五层架构 + Agentic RAG + 技术选型 + 路线图） |
 | [`docs/DIRECTORY.md`](docs/DIRECTORY.md) | 目录说明（每个目录的职责与依赖规则） |
+| [`docs/RAG_CODE_GUIDE.md`](docs/RAG_CODE_GUIDE.md) | 最小 RAG 的代码调用链与阅读顺序 |
 
 ## 当前状态
 
@@ -46,4 +47,29 @@
 
 ## 快速开始
 
-> 待开发阶段补充。一期目标是跑通「混合检索 + 单 agent 问答」最小闭环。
+安装依赖：
+
+```powershell
+uv sync
+```
+
+从完整《民法典》PDF 抽取 1260 条法条，并构建 BM25 与向量索引：
+
+```powershell
+uv run python -m knowledge.indexing.build
+```
+
+如果 Embedding API 暂时不可用，可以先构建 BM25：
+
+```powershell
+uv run python -m knowledge.indexing.build --skip-vectors
+```
+
+启动最小 RAG 命令行：
+
+```powershell
+uv run python main.py
+```
+
+程序会自动检测 `data/processed/indexes/chroma/`。存在且包含数据时使用
+BM25 + 向量 + RRF 混合检索；不存在时使用 BM25 检索。
