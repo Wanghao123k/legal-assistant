@@ -2,3 +2,5 @@
 .idea
 /learn/.env
 /learn/nltk_data/
+/learn/rag/C1/.env
+/learn/huggingface/
