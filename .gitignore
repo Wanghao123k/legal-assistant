@@ -1,3 +1,4 @@
 /.env
 .idea
 /learn/.env
+/learn/nltk_data/
