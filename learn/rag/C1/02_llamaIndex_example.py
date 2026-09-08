@@ -3,7 +3,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv("../../.env")
 
 # 必须在导入 LlamaIndex / Hugging Face 之前设置，模型从国内镜像下载。
 # hf-mirror.com 是第三方公益镜像，不是 Hugging Face 官方站点。
