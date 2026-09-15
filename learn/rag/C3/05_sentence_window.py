@@ -1,8 +1,5 @@
 from dotenv import load_dotenv
-
 load_dotenv("../../.env")
-
-
 import os
 from pathlib import Path
 
@@ -46,6 +43,10 @@ base_nodes = base_parser.get_nodes_from_documents(documents)
 base_index = VectorStoreIndex(base_nodes)
 
 # 构建查询引擎
+# 它会自动在内部组装一个完整的 RAG 流程,包括:
+#
+# 检索器(Retriever)—— 用 Settings.embed_model 向量化
+# 响应合成器(Response Synthesizer)—— 用 Settings.llm 生成答案
 sentence_query_engine = sentence_index.as_query_engine(
     # 控制检索阶段返回多少个相似节点
     similarity_top_k=2,
