@@ -15,7 +15,6 @@ from llama_index.experimental.query_engine import PandasQueryEngine
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.llms.deepseek import DeepSeek
 import pandas as pd
-from networkx.algorithms import similarity
 
 load_dotenv("../../.env")
 
