@@ -1,0 +1,36 @@
+{
+    "queries": {
+        "68dcac33-d4d7-4f3e-87ca-a0b23bce2fbd": "What is the complete title of Chapter 3?",
+        "f905e3e3-850d-448f-95ed-4403b584718c": "In which IPCC Assessment Report and Working Group contribution is this chapter published?",
+        "de5ccf7f-dff6-4b1c-9756-950263f8fdae": "Who are the two Coordinating Lead Authors, and which countries do they represent?",
+        "924fcaa5-4455-47f4-866d-aee4caf2d33b": "How many Lead Authors are listed for this chapter?",
+        "27ccb586-66e5-494a-9b10-d0ab47936167": "Name three Lead Authors and one country or region associated with each.",
+        "163de833-7074-400c-9441-2bd12c9554fb": "Identify the two Review Editors and their country affiliations.",
+        "a3e8f424-c115-41de-90c1-39f7c6dbfceb": "Who is the Chapter Scientist for this chapter?",
+        "de060cd4-626e-4e63-a424-a9020af7eaa4": "What is the page range and DOI for this chapter?",
+        "48ff26c7-4306-4df4-892e-977a692c2b05": "Which publisher and publication year are listed for this chapter?",
+        "6305e643-1fab-4552-b551-3f8b4d678547": "Name the first Contributing Author and the last Contributing Author in the list.",
+        "b1566981-630f-4c96-92cc-1405c92c75f2": "What is the full title of Chapter 3 as shown in the Table of Contents?",
+        "2dd2da06-10a7-4323-a3ae-b7262605161d": "According to the Table of Contents, on which page does the Executive Summary begin?",
+        "d40f6b73-14e3-4fd7-8fc4-97c8be99a47e": "Which section number covers \u201cObserved Trends and Projections of Climatic Impact-Drivers in the Global Ocean\u201d?",
+        "39680127-e80e-4986-9c58-b60079a5b40c": "What is the exact wording of FAQ 3.1?",
+        "495ab8ee-8a2f-4580-b581-e0985b248fa1": "List the two subsections under Section 3.2 as they appear in the Table of Contents."
+    },
+    "responses": {
+        "68dcac33-d4d7-4f3e-87ca-a0b23bce2fbd": "Oceans and Coastal Ecosystems and Their Services",
+        "f905e3e3-850d-448f-95ed-4403b584718c": "The chapter is published in the **IPCC Sixth Assessment Report (AR6)**, specifically as part of the **Working Group II contribution** titled *Climate Change 2022: Impacts, Adaptation and Vulnerability*.",
+        "de5ccf7f-dff6-4b1c-9756-950263f8fdae": "The two Coordinating Lead Authors are **Sarah R. Cooley (USA)** and **David S. Schoeman (Australia)**.",
+        "924fcaa5-4455-47f4-866d-aee4caf2d33b": "There are **11 Lead Authors** listed for this chapter.",
+        "27ccb586-66e5-494a-9b10-d0ab47936167": "- Laurent Bopp \u2014 France  \n- Philip Boyd \u2014 Australia/UK  \n- Simon Donner \u2014 Canada",
+        "163de833-7074-400c-9441-2bd12c9554fb": "The two Review Editors are **Karim Hilmi (Morocco)** and **Lisa Levin (USA)**.",
+        "a3e8f424-c115-41de-90c1-39f7c6dbfceb": "Jessica Bolin (Australia)",
+        "de060cd4-626e-4e63-a424-a9020af7eaa4": "Pages: 379\u2013550  \nDOI: 10.1017/9781009325844.005",
+        "48ff26c7-4306-4df4-892e-977a692c2b05": "Publisher: Cambridge University Press  \nPublication year: 2022",
+        "6305e643-1fab-4552-b551-3f8b4d678547": "The first Contributing Author is **Ibidun Adelekan (Nigeria)**, and the last Contributing Author is **Andrew Yool (UK)**.",
+        "b1566981-630f-4c96-92cc-1405c92c75f2": "Oceans and Coastal Ecosystems and Their Services",
+        "2dd2da06-10a7-4323-a3ae-b7262605161d": "The Executive Summary begins on page 381.",
+        "d40f6b73-14e3-4fd7-8fc4-97c8be99a47e": "Section 3.2 covers \u201cObserved Trends and Projections of Climatic Impact-Drivers in the Global Ocean.\u201d",
+        "39680127-e80e-4986-9c58-b60079a5b40c": "FAQ 3.1 | How do we know which changes to marine ecosystems are specifically caused by climate change?",
+        "495ab8ee-8a2f-4580-b581-e0985b248fa1": "The Table of Contents actually lists four subsections under Section 3.2:\n\n- 3.2.1 Introduction\n- 3.2.2 Physical Changes\n- 3.2.3 Chemical Changes\n- 3.2.4 Global Synthesis on Multiple Climate-induced Drivers"
+    }
+}
