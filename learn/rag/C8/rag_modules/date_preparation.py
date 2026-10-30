@@ -55,6 +55,30 @@ class DataPreparationModule:
         """对外提供支持的难度标签列表"""
         return cls.DIFFICULTY_LABELS
 
+    def filter_documents_by_category(self, category: str) -> List[Document]:
+        """
+        按分类过滤文档
+
+        Args:
+            category: 菜品分类
+
+        Returns:
+            过滤后的文档列表
+        """
+        return [doc for doc in self.documents if doc.metadata.get('category') == category]
+
+    def filter_documents_by_difficulty(self, difficulty: str) -> List[Document]:
+        """
+        按难度过滤文档
+
+        Args:
+            difficulty: 难度等级
+
+        Returns:
+            过滤后的文档列表
+        """
+        return [doc for doc in self.documents if doc.metadata.get('difficulty') == difficulty]
+
     def _enhance_metadata(self, doc: Document):
         """
         增强文档元数据
@@ -217,3 +241,112 @@ class DataPreparationModule:
         self.chunks = chunks
         logger.info(f"Markdown分块完成，共生成 {len(chunks)} 个chunk")
         return chunks
+
+    def get_statistics(self) -> Dict[str, Any]:
+        """
+        获取数据统计信息
+        :return:
+        """
+
+        if not self.documents:
+            return {}
+
+        categories = {}
+        difficulties = {}
+
+        for doc in self.documents:
+            # 统计分类
+            category = doc.metadata.get('category', '未知')
+            categories[category] = categories.get(category, 0) + 1
+
+            # 统计难度
+            difficulty = doc.metadata.get('difficulty', '未知')
+            difficulties[difficulty] = difficulties.get(difficulty, 0) + 1
+
+        return {
+            'total_documents': len(self.documents),
+            'total_chunks': len(self.chunks),
+            'categories': categories,
+            'difficulties': difficulties,
+            'avg_chunk_size': (
+                sum(chunk.metadata.get('chunk_size', 0) for chunk in self.chunks) /
+                len(self.chunks) if self.chunks else 0
+            )
+        }
+
+    def export_metadata(self, output_path: str):
+        """
+        导出元数据到JSON文件
+        :param output_path:
+        :return:
+        """
+        import json
+        metadata_list = []
+        for doc in self.documents:
+            metadata_list.append(
+                {
+                    'source': doc.metadata.get('source', ''),
+                    'dish_name': doc.metadata.get('dish_name', ''),
+                    'category': doc.metadata.get('category', ''),
+                    'difficulty': doc.metadata.get('difficulty', ''),
+                    'content_length': len(doc.page_content),
+                }
+            )
+
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump(metadata_list, f, ensure_ascii=False, indent=2)
+
+        logger.info(f"元数据导出到： {output_path}")
+
+
+    def get_parent_documents(self, child_chunks: List[Document]) -> List[Document]:
+        """
+        根据子块获取对应的父文档（智能去重）
+
+        Args:
+            child_chunks: 检索到的子块列表
+
+        Returns:
+            对应的父文档列表（去重，按相关性排序）
+        """
+
+        # 统计每个父文档呗匹配的次数（相关性指标）
+        parent_relevance = {}
+        parent_docs_map = {}
+
+        # 手机所有相关的父文档的ID和相关性分数
+        for chunk in child_chunks:
+            parent_id = chunk.metadata.get('parent_id')
+            if parent_id:
+                # 增加相关性技术
+                parent_relevance[parent_id] = parent_relevance.get(parent_id, 0) + 1
+
+            # 缓存父文档（避免重复查找）
+            if parent_id not in parent_docs_map:
+                for doc in self.documents:
+                    if doc.metadata.get('parent_id') == parent_id:
+                        parent_relevance[parent_id] = doc
+                        break
+
+        # 按相关性排序（匹配次数最多的排在前面）
+        sorted_parent_ids = sorted(
+            parent_relevance.keys(), key=lambda x: parent_relevance[x], reverse=True
+        )
+
+        # 构建去重厚的父文档列表
+        parent_docs = []
+        for parent_id in sorted_parent_ids:
+            if parent_id in parent_docs_map:
+                parent_docs.append(parent_docs_map[parent_id])
+
+        # 收集父文档名称和相关性信息用于日志
+        parent_info = []
+        for doc in parent_docs:
+            dish_name = doc.metadata.get('dish_name', '未知菜品')
+            parent_id = doc.metadata.get('parent_id')
+            relevance_count = parent_relevance.get(parent_id, 0)
+            parent_info.append(f"{dish_name}({relevance_count}块)")
+
+        logger.info(f"从 {len(child_chunks)} 个子块中找到 {len(parent_docs)} 个去重父文档: {', '.join(parent_info)}")
+        return parent_docs
+
