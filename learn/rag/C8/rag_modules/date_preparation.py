@@ -205,4 +205,15 @@ class DataPreparationModule:
 
         # 使用Markdown标题分割器
         chunks = self._markdown_header_split()
-        return []
+
+        # 为每个chunk添加基础元数据
+        for i, chunk in enumerate(chunks):
+            if 'chunk_id' not in chunk.metadata:
+                # 如果没有chunk_id（比如分割失败的情况）， 则生成一个
+                chunk.metadata['chunk_id'] = str(uuid.uuid4())
+            chunk.metadata['batch_index'] = i     # 在当前批次中的索引
+            chunk.metadata['chunk_size'] = len(chunk.page_content)
+
+        self.chunks = chunks
+        logger.info(f"Markdown分块完成，共生成 {len(chunks)} 个chunk")
+        return chunks
