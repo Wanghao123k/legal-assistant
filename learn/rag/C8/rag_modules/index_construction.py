@@ -1,10 +1,16 @@
+from dotenv import load_dotenv
+
+load_dotenv("../../../.env")
+
 from pathlib import Path
 from typing import List
 
 from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
 from langchain_huggingface import HuggingFaceEmbeddings
+import logging
 
+logger = logging.getLogger(__name__)
 
 class IndexConstructionModule:
     """索引构建模块  - 负责向量化和索引构建"""
@@ -71,3 +77,31 @@ class IndexConstructionModule:
             allow_dangerous_deserialization=True,
         )
         return self.vectorstore
+
+    def add_documents(self, new_chunks: List[Document]):
+        """
+        向现有索引添加新文档
+        """
+
+        if not self.vectorstore:
+            raise ValueError("请先构建向量索引")
+
+        logger.info(f"正在添加{len(new_chunks)}个新文档到索引")
+        self.vectorstore.add_documents(new_chunks)
+        logger.info("添加新文档完成")
+
+    def similarity_search(self, query: str, k: int = 5) -> List[Document]:
+        """
+        相似度搜索
+
+        Args:
+            query: 查询文本
+            k: 返回结果数量
+
+        Returns:
+            相似文档列表
+        """
+        if not self.vectorstore:
+            raise ValueError("请先构建或加载索引")
+
+        return self.vectorstore.similarity_search(query, k=k)
