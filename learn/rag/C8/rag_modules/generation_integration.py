@@ -242,8 +242,8 @@ class GenerationIntegrationModule:
         for chunk in chain.stream(query):
             yield chunk
 
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
-
-    test = GenerationIntegrationModule()
-    print(test.query_router("最近有点缺铁，缺维生素了，给我推荐一下一周的一日三餐"))
+# if __name__ == "__main__":
+#     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+#
+#     test = GenerationIntegrationModule()
+#     print(test.query_router("最近有点缺铁，缺维生素了，给我推荐一下一周的一日三餐"))

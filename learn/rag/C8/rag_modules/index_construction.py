@@ -33,7 +33,7 @@ class IndexConstructionModule:
             model_name=self.model_name,
             model_kwargs={'device': 'cpu'},
             encode_kwargs={'normalize_embeddings': True},
-            cache_folder=str(Path(__file__).resolve().parents[2] / "huggingface"),
+            cache_folder=str(Path(__file__).resolve().parents[3] / "huggingface"),
         )
 
     def build_vector_index(self, chunks: List[Document]) -> FAISS:

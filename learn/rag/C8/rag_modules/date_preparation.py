@@ -325,7 +325,7 @@ class DataPreparationModule:
             if parent_id not in parent_docs_map:
                 for doc in self.documents:
                     if doc.metadata.get('parent_id') == parent_id:
-                        parent_relevance[parent_id] = doc
+                        parent_docs_map[parent_id] = doc
                         break
 
         # 按相关性排序（匹配次数最多的排在前面）
