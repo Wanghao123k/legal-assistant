@@ -13,14 +13,14 @@ from langchain_community.document_loaders import PyPDFLoader
 logger = logging.getLogger(__name__)
 NUMBER = r"[零〇一二三四五六七八九十百千万两0-9０-９]+"
 SPACE = r"[ \t\u3000]*"  # 水平空白，不包含换行
-# 确保法律条纹按照条数分块的正则规则
+# 按法律条文分块，换行和 PDF 分页符均可作为标题边界
 BOUNDARY_PATTERN = re.compile(
-    rf"^{SPACE}(?:"
+    rf"(?:^|\f){SPACE}(?:"
     # 法条标题，同时支持“第十条之一”
     rf"(?P<article>第{SPACE}{NUMBER}{SPACE}条"
     rf"(?:{SPACE}之{SPACE}{NUMBER})?)"
     # 编、章、节也作为边界，避免其标题混入上一条
-    rf"|第{SPACE}{NUMBER}{SPACE}[编章节][^\n]*"
+    rf"|第{SPACE}{NUMBER}{SPACE}[编章节][^\n\f]*"
     rf")",
     re.MULTILINE,
 )
@@ -89,11 +89,5 @@ class DataPreparationModule:
                         },
                     )
                 )
-
+        self.chunks = chunks
         return chunks
-
-test = DataPreparationModule("../data")
-test.load_pdfs()
-for i in test.chunk_pdf_documents():
-    print(i)
-    print("============")
