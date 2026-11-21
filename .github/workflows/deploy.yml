@@ -69,10 +69,36 @@ jobs:
           [[ "$SSH_PORT" =~ ^[0-9]+$ ]]
 
           install -d -m 700 "$HOME/.ssh"
-          printf '%s\n' "$SSH_PRIVATE_KEY" | tr -d '\r' > "$HOME/.ssh/deploy_key"
-          printf '%s\n' "$SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          # Restore line wrapping when a terminal/browser copied the key onto one line.
+          python - <<'PY'
+          import base64
+          import os
+          from pathlib import Path
+          import re
+          import textwrap
+
+          raw = os.environ["SSH_PRIVATE_KEY"].replace("\\r", "").replace("\\n", "\n")
+          match = re.search(r"-----BEGIN OPENSSH PRIVATE KEY-----\s*(.*?)\s*-----END OPENSSH PRIVATE KEY-----", raw, re.S)
+          if not match:
+              raise SystemExit("SSH_PRIVATE_KEY must contain the complete OpenSSH private key, including BEGIN and END lines.")
+          body = "".join(match.group(1).split())
+          try:
+              decoded = base64.b64decode(body, validate=True)
+          except ValueError:
+              raise SystemExit("SSH_PRIVATE_KEY contains invalid or incomplete base64 data.") from None
+          if not decoded.startswith(b"openssh-key-v1\x00"):
+              raise SystemExit("SSH_PRIVATE_KEY is not a valid OpenSSH private key.")
+          key_path = Path.home() / ".ssh" / "deploy_key"
+          key_path.touch(mode=0o600)
+          key_path.write_text("-----BEGIN OPENSSH PRIVATE KEY-----\n" + textwrap.fill(body, 70) + "\n-----END OPENSSH PRIVATE KEY-----\n")
+          PY
+          printf '%s\n' "$SSH_KNOWN_HOSTS" | tr -d '\r' > "$HOME/.ssh/known_hosts"
           chmod 600 "$HOME/.ssh/deploy_key" "$HOME/.ssh/known_hosts"
           trap 'rm -f "$HOME/.ssh/deploy_key"' EXIT
+          if ! ssh-keygen -y -P '' -f "$HOME/.ssh/deploy_key" >/dev/null; then
+            echo 'SSH_PRIVATE_KEY is damaged or password-protected. Use the original complete unencrypted deployment private key.' >&2
+            exit 1
+          fi
           ssh_options=(-i "$HOME/.ssh/deploy_key" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=20 -o ServerAliveInterval=15 -o ServerAliveCountMax=4)
           target="$SSH_USER@$SSH_HOST"
           upload_dir="/opt/legal-assistant/incoming/$GITHUB_SHA-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
