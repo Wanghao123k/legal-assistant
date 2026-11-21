@@ -73,3 +73,39 @@ uv run python main.py
 
 程序会自动检测 `data/processed/indexes/chroma/`。存在且包含数据时使用
 BM25 + 向量 + RRF 混合检索；不存在时使用 BM25 检索。
+
+## Docker 部署（当前聊天功能）
+
+前后端共用根目录的一个 `Dockerfile`，构建为一个镜像、运行一个容器。后端同时提供首页 `/` 和聊天接口 `/api/chat`，无需单独启动前端。
+
+1. 在项目根目录复制 `.env.example` 为 `.env`（已有则直接编辑），填写 `LLM_API_KEY`，按需设置 `LLM_BASE_URL` 和 `LLM_MODEL`。未设置模型时沿用 `config.py` 中的默认值；请确认模型名称在你的服务商账户中可用。
+2. 启动 Docker（Windows 使用 Docker Desktop 的 Linux containers 模式），在项目根目录执行：
+
+```sh
+docker build -t legal-assistant:latest .
+docker run -d --name legal-assistant --restart unless-stopped --env-file .env -p 8000:8000 legal-assistant:latest
+```
+
+本机访问 <http://localhost:8000>；服务器部署后访问 `http://服务器IP:8000`，并放行服务器的 TCP 8000 端口。宿主机端口可调整，例如 `-p 8080:8000`，此时访问 8080。
+
+查看日志、健康状态和停止服务：
+
+```sh
+docker logs -f legal-assistant
+docker inspect --format='{{.State.Health.Status}}' legal-assistant
+docker stop legal-assistant
+```
+
+更新代码后重新构建镜像，再删除旧容器并按上面的 `docker run` 命令启动。修改 `.env` 后也需要重新创建容器，`docker restart` 不会重新读取 `--env-file`：
+
+```sh
+docker build -t legal-assistant:latest .
+docker rm -f legal-assistant
+docker run -d --name legal-assistant --restart unless-stopped --env-file .env -p 8000:8000 legal-assistant:latest
+```
+
+镜像只包含当前聊天功能需要的代码和 Python 依赖，不安装 RAG、训练或本地模型依赖。`.dockerignore` 排除密钥、本地虚拟环境、Git 历史及数据文件；`.env` 仅在启动容器时传入。健康检查访问首页，不调用模型；对话仅保存在当前浏览器页面中。
+
+容器默认以普通用户运行，监听 `0.0.0.0:8000`。直接本地运行 `uv run python -m backend.main` 时仍默认监听 `127.0.0.1:8000`；可通过 `HOST`、`PORT` 环境变量覆盖。
+
+现有 `docker-compose.yml` 用于独立的 Milvus 组件，当前聊天服务不依赖它，执行以上命令即可部署。

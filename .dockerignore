@@ -1,0 +1,9 @@
+# Allow only the files required by the combined frontend/backend image.
+**
+!Dockerfile
+!.dockerignore
+!config.py
+!backend/
+!backend/main.py
+!frontend/
+!frontend/index.html

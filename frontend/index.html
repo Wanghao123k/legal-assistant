@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>法律助手小王 · 对话</title>
+  <style>
+    :root { color-scheme: light; font-family: "Microsoft YaHei", system-ui, sans-serif; color: #202e48; background: #f1f5fa; }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    button, textarea { font: inherit; }
+    button { cursor: pointer; }
+    button:disabled { cursor: wait; opacity: .55; }
+    button:focus-visible, textarea:focus-visible { outline: 3px solid #87b5ff; outline-offset: 3px; }
+    .app { max-width: 1000px; height: 100dvh; min-height: 480px; margin: auto; padding: 24px; display: flex; flex-direction: column; }
+    header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+    .logo, .avatar { display: grid; place-items: center; flex-shrink: 0; background: #e8effd; color: #315ec2; font-weight: bold; }
+    .logo { width: 44px; height: 44px; border-radius: 14px; background: #315ec2; color: white; font-size: 22px; }
+    h1 { margin: 0 0 4px; font-size: 20px; }
+    .subtitle { margin: 0; color: #78849b; font-size: 12px; }
+    #clear { margin-left: auto; padding: 9px 14px; background: white; border: 1px solid #dce3ed; border-radius: 9px; color: #52617b; white-space: nowrap; }
+    main { flex: 1; min-height: 0; display: flex; flex-direction: column; background: white; border: 1px solid #e2e8f2; border-radius: 20px; box-shadow: 0 10px 40px #20375608; overflow: hidden; }
+    #messages { flex: 1; min-height: 0; overflow-y: auto; padding: 28px; }
+    #welcome { text-align: center; padding: 45px 12px 20px; }
+    #welcome h2 { font-size: 25px; font-weight: 600; }
+    #welcome p { color: #7d889b; line-height: 1.9; font-size: 14px; }
+    .suggestions { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; margin-top: 25px; }
+    .suggestions button { background: #f6f8fc; border: 1px solid #e4eaf4; border-radius: 10px; padding: 12px 16px; color: #50617f; font-size: 13px; }
+    .message { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 22px; }
+    .message.user { flex-direction: row-reverse; }
+    .avatar { height: 32px; width: 32px; border-radius: 10px; font-size: 12px; }
+    .user .avatar { background: #edf0f5; color: #64718a; }
+    .bubble { max-width: 82%; padding: 13px 17px; border-radius: 2px 14px 14px; background: #f3f6fb; line-height: 1.8; font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .user .bubble { background: #315ec2; color: white; border-radius: 14px 2px 14px 14px; }
+    .pending { color: #79869e; }
+    form { margin: 0 22px 18px; padding: 12px; border: 1px solid #dce4f0; border-radius: 14px; background: #fbfcfe; }
+    label { display: block; font-size: 12px; color: #71809a; padding: 0 4px 6px; }
+    textarea { display: block; width: 100%; resize: none; border: 0; background: transparent; padding: 4px; line-height: 1.6; color: #202e48; }
+    .toolbar { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; gap: 10px; }
+    .hint { color: #95a0b2; font-size: 11px; }
+    #send { background: #315ec2; color: white; border: 0; border-radius: 9px; padding: 10px 22px; white-space: nowrap; }
+    #error { color: #b43737; font-size: 13px; margin: 0 24px 12px; overflow-wrap: anywhere; }
+    #error:empty { display: none; }
+    footer { text-align: center; color: #929db0; font-size: 11px; padding-top: 12px; }
+    @media (max-width: 600px) {
+      .app { padding: 12px; } header { gap: 8px; margin-bottom: 12px; } h1 { font-size: 17px; }
+      #messages { padding: 16px; } form { margin: 0 12px 12px; } .bubble { max-width: 85%; }
+      #welcome { padding-top: 20px; } .hint { max-width: 170px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="logo" aria-hidden="true">法</div>
+      <div><h1>法律助手小王</h1><p class="subtitle">从一个问题，开始一段对话</p></div>
+      <button id="clear" type="button">清空对话</button>
+    </header>
+    <main>
+      <div id="messages" role="log" aria-label="聊天记录" aria-live="polite" aria-relevant="additions text">
+        <section id="welcome">
+          <h2>你好，我是小王</h2>
+          <p>可以聊聊你的问题，我会结合上下文继续回答。<br>试着描述具体情况，或者从下面的话题开始。</p>
+          <div class="suggestions">
+            <button type="button">请介绍一下你自己</button>
+            <button type="button">签订劳动合同前需要关注什么？</button>
+          </div>
+        </section>
+      </div>
+      <p id="error" role="alert"></p>
+      <form id="chat-form">
+        <label for="input">你的问题</label>
+        <textarea id="input" rows="3" maxlength="10000" placeholder="输入你想聊的内容……" required></textarea>
+        <div class="toolbar">
+          <span class="hint" id="status" role="status">Enter 发送 · Shift + Enter 换行</span>
+          <button id="send" type="submit">发送消息</button>
+        </div>
+      </form>
+    </main>
+    <footer>对话仅保留在当前页面，刷新后清除 · 法律相关回复请结合实际情况核实</footer>
+  </div>
+  <script>
+    const form = document.querySelector('#chat-form');
+    const input = document.querySelector('#input');
+    const messages = document.querySelector('#messages');
+    const welcome = document.querySelector('#welcome');
+    const send = document.querySelector('#send');
+    const clear = document.querySelector('#clear');
+    const error = document.querySelector('#error');
+    const status = document.querySelector('#status');
+    // 最近 20 轮上下文只存内存；API 密钥由后端管理。
+    let history = [];
+    let busy = false;
+
+    function addMessage(role, content) {
+      const row = document.createElement('div');
+      row.className = `message ${role}`;
+      const avatar = document.createElement('div');
+      avatar.className = 'avatar';
+      avatar.textContent = role === 'user' ? '你' : '小王';
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble';
+      // 模型回复和用户输入都按文本渲染，避免执行 HTML。
+      bubble.textContent = content;
+      row.append(avatar, bubble);
+      messages.append(row);
+      messages.scrollTop = messages.scrollHeight;
+      return row;
+    }
+
+    function setBusy(value) {
+      busy = value;
+      send.disabled = clear.disabled = input.disabled = value;
+      messages.setAttribute('aria-busy', String(value));
+      send.textContent = value ? '回复中…' : '发送消息';
+      status.textContent = value ? '小王正在思考，请稍候…' : 'Enter 发送 · Shift + Enter 换行';
+    }
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const content = input.value.trim();
+      if (busy || !content) return;
+      error.textContent = '';
+      welcome.hidden = true;
+      const userRow = addMessage('user', content);
+      const pendingRow = addMessage('assistant', '正在思考…');
+      pendingRow.classList.add('pending');
+      input.value = '';
+      setBusy(true);
+      // 保留完整的问答对，最后追加本轮问题。
+      const nextHistory = [...history.slice(-38), { role: 'user', content }];
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 90000);
+      try {
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messages: nextHistory }),
+          signal: controller.signal,
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(typeof data.detail === 'string' ? data.detail : `请求失败（${response.status}），请重试。`);
+        }
+        if (typeof data.reply !== 'string' || !data.reply.trim()) throw new Error('未收到有效回复，请重试。');
+        pendingRow.querySelector('.bubble').textContent = data.reply;
+        pendingRow.classList.remove('pending');
+        history = [...nextHistory, { role: 'assistant', content: data.reply }];
+        messages.scrollTop = messages.scrollHeight;
+      } catch (exception) {
+        userRow.remove();
+        pendingRow.remove();
+        input.value = content;
+        welcome.hidden = history.length > 0;
+        error.textContent = exception.name === 'AbortError'
+          ? '等待回复超时，请重试。'
+          : (exception instanceof TypeError ? '连接失败，请确认后端已启动，并通过 http://127.0.0.1:8000 访问页面。' : exception.message);
+      } finally {
+        clearTimeout(timer);
+        setBusy(false);
+        input.focus();
+      }
+    });
+
+    input.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
+        event.preventDefault();
+        form.requestSubmit();
+      }
+    });
+
+    clear.addEventListener('click', () => {
+      if (busy) return;
+      history = [];
+      messages.querySelectorAll('.message').forEach(row => row.remove());
+      welcome.hidden = false;
+      error.textContent = input.value = '';
+      input.focus();
+    });
+
+    document.querySelectorAll('.suggestions button').forEach(button => {
+      button.addEventListener('click', () => {
+        if (busy) return;
+        input.value = button.textContent;
+        form.requestSubmit();
+      });
+    });
+  </script>
+</body>
+</html>
