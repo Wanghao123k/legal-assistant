@@ -79,9 +79,8 @@ jobs:
 
           raw = os.environ["SSH_PRIVATE_KEY"].replace("\\r", "").replace("\\n", "\n")
           match = re.search(r"-----BEGIN OPENSSH PRIVATE KEY-----\s*(.*?)\s*-----END OPENSSH PRIVATE KEY-----", raw, re.S)
-          if not match:
-              raise SystemExit("SSH_PRIVATE_KEY must contain the complete OpenSSH private key, including BEGIN and END lines.")
-          body = "".join(match.group(1).split())
+          # A copied base64 body is usable only if it decodes to the OpenSSH key format.
+          body = "".join((match.group(1) if match else raw).split())
           try:
               decoded = base64.b64decode(body, validate=True)
           except ValueError:
