@@ -30,12 +30,15 @@ jobs:
 
       - name: Prepare model environment from GitHub configuration
         env:
-          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
-          LLM_BASE_URL: ${{ secrets.LLM_BASE_URL || vars.LLM_BASE_URL }}
-          LLM_MODEL: ${{ secrets.LLM_MODEL || vars.LLM_MODEL }}
+          LLM_API_KEY: ${{ vars.LLM_API_KEY }}
+          LLM_BASE_URL: ${{ vars.LLM_BASE_URL }}
+          LLM_MODEL: ${{ vars.LLM_MODEL }}
         run: |
           set -euo pipefail
           umask 077
+          if [[ -n "$LLM_API_KEY" ]]; then
+            printf '::add-mask::%s\n' "$LLM_API_KEY"
+          fi
           python - <<'PY'
           import os
           from pathlib import Path
@@ -44,7 +47,7 @@ jobs:
           for name in ("LLM_API_KEY", "LLM_BASE_URL", "LLM_MODEL"):
               value = os.environ.get(name, "").strip()
               if name == "LLM_API_KEY" and not value:
-                  raise SystemExit("Set LLM_API_KEY in the production environment Secrets before deploying.")
+                  raise SystemExit("Set LLM_API_KEY in the production Environment variables before deploying.")
               if any(char in value for char in ("\r", "\n", "\x00")):
                   raise SystemExit(f"{name} must be a single-line value.")
               if value:

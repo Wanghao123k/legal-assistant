@@ -30,7 +30,7 @@ install -d -m 700 -o deploy -g deploy /opt/legal-assistant
 
 ## 2. 配置业务环境变量
 
-打开仓库 `Settings → Environments → production`，在 **Environment secrets** 中添加：
+打开仓库 `Settings → Environments → production`，在 **Environment variables** 中添加：
 
 | 名称 | 内容 |
 |---|---|
@@ -38,7 +38,7 @@ install -d -m 700 -o deploy -g deploy /opt/legal-assistant
 | `LLM_BASE_URL` | 接口地址，例如 `https://api.deepseek.com/v1`；留空使用应用默认值 |
 | `LLM_MODEL` | 账号可用的模型名称；留空使用 `config.py` 的默认值 |
 
-每项只填值，不加 `LLM_API_KEY=`、`export`、引号或行尾注释。`LLM_BASE_URL` 和 `LLM_MODEL` 也支持配置到同一环境的 Variables，同名 Secret 优先。工作流显式绑定 `production`，并在构建前检查模型配置。
+每项只填值，不加 `LLM_API_KEY=`、`export`、引号或行尾注释。三个模型配置均通过 `vars` 上下文读取，同名 Secret 不参与取值。工作流显式绑定 `production`，并在构建前检查模型配置。Variables 中的值对有相应权限的用户可见。
 
 临时文件在构建机和服务器均限制为仅部署用户可读写，通过 `docker run --env-file` 注入后删除。容器重启会保留已注入的环境变量。脚本固定容器内部 `HOST=0.0.0.0`、`PORT=8000`，无需额外设置。Docker 管理员能够读取容器环境变量。
 
@@ -105,7 +105,7 @@ IP 或域名必须与 `SSH_HOST` 完全一致。工作流启用严格主机校�
 | `SSH_PRIVATE_KEY` | `legal-assistant-actions` 私钥的完整内容，包括 BEGIN/END 两行 |
 | `SSH_KNOWN_HOSTS` | 上一步准备的主机公钥记录 |
 
-这些配置用于连接服务器；模型配置见第 2 节。所有密钥均只保存到 Secrets，不提交到 Git。
+这些 Secrets 用于连接服务器；模型配置使用第 2 节的 Environment variables。密钥值不提交到 Git。
 
 ## 5. 首次发布
 
@@ -135,13 +135,13 @@ docker inspect --format '{{.State.Health.Status}}' legal-assistant
 
 ## 6. 以后修改环境变量
 
-在 GitHub 的 `production` 环境中更新相应 Secret 或 Variable，然后在 Actions 的 `Deploy to Aliyun` 页面选择 `Run workflow → master`。工作流会使用新配置重新创建容器，无需修改代码。单独 `docker restart` 会保留容器创建时的旧值。
+在 GitHub 的 `production` 环境中更新相应模型 Variable，然后在 Actions 的 `Deploy to Aliyun` 页面选择 `Run workflow → master`。工作流会使用新配置重新创建容器，无需修改代码。单独 `docker restart` 会保留容器创建时的旧值。
 
 ## 7. 失败与回退
 
 构建、上传、配置预检查失败时，旧容器继续运行。替换容器时有短暂中断；新容器未通过启动检查时，脚本会删除新容器并尝试恢复旧容器。第一次部署没有旧容器可恢复。应用数据迁移及零停机发布不在当前聊天服务方案内。
 
-成功发布后需要回退代码，可在 GitHub 撤销对应代码提交并推送到 `master`，触发重新部署；仍使用 `production` 当前的模型配置。需要回退配置时，先恢复对应 Secret，再运行工作流。手动按旧镜像部署则需另外准备服务器 `.env`，自动部署不会留下临时配置文件供后续读取。
+成功发布后需要回退代码，可在 GitHub 撤销对应代码提交并推送到 `master`，触发重新部署；仍使用 `production` 当前的模型配置。需要回退配置时，先恢复对应 Variable，再运行工作流。手动按旧镜像部署则需另外准备服务器 `.env`，自动部署不会留下临时配置文件供后续读取。
 
 旧镜像会保留在服务器。随发布次数增加，定期使用 `docker system df` 查看空间，确认无需回退后再按具体标签删除不用的应用镜像。
 
