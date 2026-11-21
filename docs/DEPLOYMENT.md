@@ -2,7 +2,7 @@
 
 将代码推送到 GitHub 的 `master` 分支后，GitHub Actions 构建现有 `Dockerfile`，检查网页能否打开，通过 SSH 上传镜像，在 ECS 上替换聊天容器。前后端仍然共用一个镜像和一个容器。
 
-业务环境变量只在服务器 `/opt/legal-assistant/.env` 手动配置。工作流不上传、不覆盖这个文件，也不需要将模型密钥放到 GitHub。
+业务环境变量在 GitHub 的 `production` 环境配置。工作流通过 SSH 传递临时配置文件，创建容器时注入环境变量，部署结束后删除临时文件；模型密钥不进入代码仓库、镜像或命令行参数。服务器无需预先创建 `.env`。
 
 ## 1. 准备服务器
 
@@ -28,28 +28,21 @@ install -d -m 700 -o deploy -g deploy /opt/legal-assistant
 
 本方案只操作 `legal-assistant` 及其临时备份容器。仓库原有的 `docker-compose.yml` 属于 Milvus，不参与本次应用部署。
 
-## 2. 手动配置业务环境变量
+## 2. 配置业务环境变量
 
-以 `deploy` 用户登录服务器：
+打开仓库 `Settings → Environments → production`，在 **Environment secrets** 中添加：
 
-```bash
-umask 077
-touch /opt/legal-assistant/.env
-chmod 600 /opt/legal-assistant/.env
-vi /opt/legal-assistant/.env
-```
+| 名称 | 内容 |
+|---|---|
+| `LLM_API_KEY` | 真实模型 API 密钥，必填 |
+| `LLM_BASE_URL` | 接口地址，例如 `https://api.deepseek.com/v1`；留空使用应用默认值 |
+| `LLM_MODEL` | 账号可用的模型名称；留空使用 `config.py` 的默认值 |
 
-填写你实际使用的配置：
+每项只填值，不加 `LLM_API_KEY=`、`export`、引号或行尾注释。`LLM_BASE_URL` 和 `LLM_MODEL` 也支持配置到同一环境的 Variables，同名 Secret 优先。工作流显式绑定 `production`，并在构建前检查模型配置。
 
-```dotenv
-LLM_API_KEY=替换为你的真实模型密钥
-LLM_BASE_URL=https://api.deepseek.com/v1
-LLM_MODEL=替换为你的账号可用的模型名称
-```
+临时文件在构建机和服务器均限制为仅部署用户可读写，通过 `docker run --env-file` 注入后删除。容器重启会保留已注入的环境变量。脚本固定容器内部 `HOST=0.0.0.0`、`PORT=8000`，无需额外设置。Docker 管理员能够读取容器环境变量。
 
-使用 `KEY=value` 格式，不加 `export`、引号或行尾注释。Docker 的 `--env-file` 与 shell 配置文件解析规则不同。数据库等其他配置，等应用代码开始读取后也可以放在这里。
-
-文件会在每次创建容器时通过 `--env-file` 注入；镜像中不包含它。脚本固定容器内部 `HOST=0.0.0.0`、`PORT=8000`，无需在 `.env` 设置这两个值。
+如需完全手动部署，脚本仍支持读取服务器 `/opt/legal-assistant/.env`。自动部署使用独立临时文件，不覆盖该手动配置文件。
 
 当前应用仅实现聊天，尚未加入登录鉴权；公网开放聊天接口后，访问者可以消耗你的模型额度。首次部署可以把 8000 的访问来源限制为自己的 IP。
 
@@ -73,7 +66,7 @@ chmod 600 /home/deploy/.ssh/authorized_keys
 验证该密钥能登录，且部署用户拥有 Docker 权限：
 
 ```bash
-ssh -i legal-assistant-actions -p 22 deploy@你的服务器公网IP "docker info >/dev/null && test -r /opt/legal-assistant/.env"
+ssh -i legal-assistant-actions -p 22 deploy@你的服务器公网IP "docker info >/dev/null && test -w /opt/legal-assistant"
 ```
 
 ### 获取服务器主机公钥
@@ -102,17 +95,17 @@ IP 或域名必须与 `SSH_HOST` 完全一致。工作流启用严格主机校�
 
 ## 4. 配置 GitHub Secrets
 
-打开 [仓库 Actions Secrets 设置](https://github.com/Wanghao123k/legal-assistant/settings/secrets/actions)，即 `Settings → Secrets and variables → Actions → New repository secret`，添加：
+打开仓库 `Settings → Environments → production`，在同一个环境的 Secrets 中添加 SSH 配置。也可使用 [Repository secrets](https://github.com/Wanghao123k/legal-assistant/settings/secrets/actions)：
 
 | Secret 名称 | 内容 |
 |---|---|
 | `SSH_HOST` | ECS 公网 IPv4 地址或域名，不带 `http://` |
 | `SSH_PORT` | SSH 端口，通常为 `22`，不填时默认 22 |
-| `SSH_USER` | 部署用户名，如 `deploy` |
+| `SSH_USER` | 部署用户名，不填时默认 `deploy` |
 | `SSH_PRIVATE_KEY` | `legal-assistant-actions` 私钥的完整内容，包括 BEGIN/END 两行 |
 | `SSH_KNOWN_HOSTS` | 上一步准备的主机公钥记录 |
 
-这里配置的是连接服务器所需的信息。`LLM_API_KEY` 等业务环境变量继续由你在服务器手动维护。
+这些配置用于连接服务器；模型配置见第 2 节。所有密钥均只保存到 Secrets，不提交到 Git。
 
 ## 5. 首次发布
 
@@ -142,27 +135,15 @@ docker inspect --format '{{.State.Health.Status}}' legal-assistant
 
 ## 6. 以后修改环境变量
 
-编辑 `/opt/legal-assistant/.env` 后，使用当前已发布镜像重新创建容器即可，无需修改代码或提交 `.env`：
-
-```bash
-image=$(cat /opt/legal-assistant/.deployed-image)
-bash /opt/legal-assistant/deploy.sh "${image#legal-assistant:}"
-```
-
-也可以在 GitHub Actions 手动运行工作流。单独 `docker restart` 不会重新读取 `--env-file`。勿在自动部署运行时同时修改 `.env`。
+在 GitHub 的 `production` 环境中更新相应 Secret 或 Variable，然后在 Actions 的 `Deploy to Aliyun` 页面选择 `Run workflow → master`。工作流会使用新配置重新创建容器，无需修改代码。单独 `docker restart` 会保留容器创建时的旧值。
 
 ## 7. 失败与回退
 
 构建、上传、配置预检查失败时，旧容器继续运行。替换容器时有短暂中断；新容器未通过启动检查时，脚本会删除新容器并尝试恢复旧容器。第一次部署没有旧容器可恢复。应用数据迁移及零停机发布不在当前聊天服务方案内。
 
-若需要在成功发布后回退到上一个镜像，在服务器执行：
+成功发布后需要回退代码，可在 GitHub 撤销对应代码提交并推送到 `master`，触发重新部署；仍使用 `production` 当前的模型配置。需要回退配置时，先恢复对应 Secret，再运行工作流。手动按旧镜像部署则需另外准备服务器 `.env`，自动部署不会留下临时配置文件供后续读取。
 
-```bash
-image=$(cat /opt/legal-assistant/.previous-image)
-bash /opt/legal-assistant/deploy.sh "${image#legal-assistant:}"
-```
-
-旧镜像会保留在服务器，回退仍读取当前 `.env`；需要回退配置时由你手动恢复该文件。随发布次数增加，定期使用 `docker system df` 查看空间，确认无需回退后再按具体标签删除不用的应用镜像。
+旧镜像会保留在服务器。随发布次数增加，定期使用 `docker system df` 查看空间，确认无需回退后再按具体标签删除不用的应用镜像。
 
 如果主机掉电或部署进程被强制结束，可能留下 `legal-assistant-previous`。脚本会停止后续部署，防止覆盖备份。在确认没有部署正在运行后，检查两个容器，再决定保留哪个：
 

@@ -1,13 +1,25 @@
 #!/usr/bin/env bash
-# Deploy an already built image; application secrets stay on the server.
+# Deploy an already built image using a temporary CI env file or the server .env.
 set -euo pipefail
 umask 077
 
 app_dir=/opt/legal-assistant
 container=legal-assistant
 backup=legal-assistant-previous
-revision="${1:?Usage: bash deploy.sh COMMIT_SHA [IMAGE_ARCHIVE]}"
+revision="${1:?Usage: bash deploy.sh COMMIT_SHA [IMAGE_ARCHIVE] [RUNTIME_ENV_FILE]}"
 archive="${2:-}"
+runtime_env="${3:-}"
+env_file="${runtime_env:-$app_dir/.env}"
+if [[ -n "$runtime_env" && "$runtime_env" != "$app_dir/incoming/"*"/runtime.env" ]]; then
+  echo 'The temporary environment file must be incoming/RUN/runtime.env.' >&2
+  exit 1
+fi
+cleanup_runtime_env() {
+  if [[ -n "$runtime_env" ]]; then
+    rm -f -- "$runtime_env"
+  fi
+}
+trap cleanup_runtime_env EXIT
 [[ "$revision" =~ ^[a-f0-9]{40}$ ]] || { echo 'Expected a full commit SHA.' >&2; exit 1; }
 image="legal-assistant:$revision"
 
@@ -16,12 +28,12 @@ test -d "$app_dir"
 exec 9>"$app_dir/.deploy.lock"
 flock -w 300 9
 
-if [[ ! -r "$app_dir/.env" ]]; then
-  echo "Create $app_dir/.env manually before deploying." >&2
+if [[ ! -r "$env_file" ]]; then
+  echo 'Provide model configuration through GitHub production Secrets or the server .env file.' >&2
   exit 1
 fi
-if ! grep -Eq '^LLM_API_KEY=.+$' "$app_dir/.env"; then
-  echo 'Set LLM_API_KEY in the server .env file.' >&2
+if ! grep -Eq '^LLM_API_KEY=.+$' "$env_file"; then
+  echo 'Set LLM_API_KEY in the deployment environment file.' >&2
   exit 1
 fi
 docker info >/dev/null
@@ -62,6 +74,7 @@ finish() {
       fi
     fi
   fi
+  cleanup_runtime_env
   exit "$status"
 }
 trap finish EXIT
@@ -80,7 +93,7 @@ docker run -d \
   --name "$container" \
   --pull never \
   --restart unless-stopped \
-  --env-file "$app_dir/.env" \
+  --env-file "$env_file" \
   --env HOST=0.0.0.0 \
   --env PORT=8000 \
   --publish 8000:8000 \
@@ -115,4 +128,4 @@ deployed=true
 if [[ "$had_previous" == true ]]; then
   docker rm "$backup" >/dev/null
 fi
-echo "Deployed $image. Application environment loaded from $app_dir/.env."
+echo "Deployed $image. Application environment injected into the container."

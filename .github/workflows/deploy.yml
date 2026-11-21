@@ -28,6 +28,32 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Prepare model environment from GitHub configuration
+        env:
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LLM_BASE_URL: ${{ secrets.LLM_BASE_URL || vars.LLM_BASE_URL }}
+          LLM_MODEL: ${{ secrets.LLM_MODEL || vars.LLM_MODEL }}
+        run: |
+          set -euo pipefail
+          umask 077
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          values = {}
+          for name in ("LLM_API_KEY", "LLM_BASE_URL", "LLM_MODEL"):
+              value = os.environ.get(name, "").strip()
+              if name == "LLM_API_KEY" and not value:
+                  raise SystemExit("Set LLM_API_KEY in the production environment Secrets before deploying.")
+              if any(char in value for char in ("\r", "\n", "\x00")):
+                  raise SystemExit(f"{name} must be a single-line value.")
+              if value:
+                  values[name] = value
+          path = Path(os.environ["RUNNER_TEMP"]) / "legal-assistant-runtime.env"
+          path.write_text("".join(f"{name}={value}\n" for name, value in values.items()), encoding="utf-8")
+          path.chmod(0o600)
+          PY
+
       - name: Build and check the combined frontend/backend image
         run: |
           set -euo pipefail
@@ -93,7 +119,16 @@ jobs:
           PY
           printf '%s\n' "$SSH_KNOWN_HOSTS" | tr -d '\r' > "$HOME/.ssh/known_hosts"
           chmod 600 "$HOME/.ssh/deploy_key" "$HOME/.ssh/known_hosts"
-          trap 'rm -f "$HOME/.ssh/deploy_key"' EXIT
+          cleanup() {
+            status=$?
+            trap - EXIT
+            if [[ -n "${upload_dir:-}" ]]; then
+              ssh "${ssh_options[@]}" -p "$SSH_PORT" "$target" "rm -f '$upload_dir/runtime.env'" >/dev/null 2>&1 || true
+            fi
+            rm -f "$HOME/.ssh/deploy_key" "$RUNNER_TEMP/legal-assistant-runtime.env"
+            exit "$status"
+          }
+          trap cleanup EXIT
           if ! ssh-keygen -y -P '' -f "$HOME/.ssh/deploy_key" >/dev/null; then
             echo 'SSH_PRIVATE_KEY is damaged or password-protected. Use the original complete unencrypted deployment private key.' >&2
             exit 1
@@ -103,5 +138,10 @@ jobs:
           upload_dir="/opt/legal-assistant/incoming/$GITHUB_SHA-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
           ssh "${ssh_options[@]}" -p "$SSH_PORT" "$target" "umask 077; mkdir -p '$upload_dir'"
           scp "${ssh_options[@]}" -P "$SSH_PORT" "$RUNNER_TEMP/image.tar.gz" scripts/deploy.sh "$target:$upload_dir/"
-          ssh "${ssh_options[@]}" -p "$SSH_PORT" "$target" "bash '$upload_dir/deploy.sh' '$GITHUB_SHA' '$upload_dir/image.tar.gz'"
+          ssh "${ssh_options[@]}" -p "$SSH_PORT" "$target" "umask 077; cat > '$upload_dir/runtime.env'" < "$RUNNER_TEMP/legal-assistant-runtime.env"
+          ssh "${ssh_options[@]}" -p "$SSH_PORT" "$target" "bash '$upload_dir/deploy.sh' '$GITHUB_SHA' '$upload_dir/image.tar.gz' '$upload_dir/runtime.env'"
           ssh "${ssh_options[@]}" -p "$SSH_PORT" "$target" "rm -f '$upload_dir/image.tar.gz' '$upload_dir/deploy.sh'; rmdir '$upload_dir'"
+
+      - name: Remove temporary deployment credentials
+        if: always()
+        run: rm -f "$RUNNER_TEMP/legal-assistant-runtime.env" "$HOME/.ssh/deploy_key"
