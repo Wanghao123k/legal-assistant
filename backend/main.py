@@ -1,8 +1,10 @@
-"""最小聊天 Agent：接收问题 -> 携带对话历史调用模型 -> 返回回复。
+"""最小聊天 Agent：接收问题 -> 返回占位回复（暂未接入大模型）。
 
 在项目根目录运行：uv run python -m backend.main
-然后打开 http://127.0.0.1:8000 。配置读取根目录 .env：
-LLM_API_KEY、LLM_BASE_URL，以及可选的 LLM_MODEL（默认使用 config.py）。
+然后打开 http://127.0.0.1:8000 。
+
+模型调用已暂时移除，聊天固定返回「啊吧啊吧」，方便在没有登录、没有模型
+凭据的情况下跑通前后端流程。以后接入模型时只需修改 run_agent。
 """
 
 import json
@@ -13,28 +15,15 @@ from pathlib import Path
 from typing import Literal
 
 from dotenv import load_dotenv
-from openai import (
-    APIConnectionError,
-    APIStatusError,
-    APITimeoutError,
-    OpenAI,
-    AuthenticationError,
-    RateLimitError,
-)
 from pydantic import BaseModel, Field, ValidationError, model_validator
-
-from config import DEFAULT_CONFIG
 
 
 ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT / ".env")
 logger = logging.getLogger(__name__)
-SYSTEM_PROMPT = (
-    "你是法律助手小王，用清晰、友好的中文与用户交流。"
-    "结合对话上下文回答；信息不足时主动询问。"
-    "涉及法律问题时区分事实、推测和建议，不编造法条、案例或来源。"
-    "当前没有联网检索或知识库工具，不要声称已查询资料。"
-)
+
+# 占位回复：前端收到的就是这一句。
+PLACEHOLDER_REPLY = "啊吧啊吧"
 
 
 class Message(BaseModel):
@@ -64,42 +53,9 @@ class ChatError(Exception):
 
 
 def run_agent(request: ChatRequest) -> str:
-    api_key = os.getenv("LLM_API_KEY", "").strip()
-    if not api_key:
-        raise ChatError(503, "请先在项目根目录 .env 中配置 LLM_API_KEY，然后重启服务。")
-
-    # 最小 Agent 循环：读取本轮输入与历史 -> 调用模型 -> 将回复交给前端续接下一轮。
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-    messages.extend(message.model_dump() for message in request.messages)
-    try:
-        with OpenAI(
-            api_key=api_key,
-            base_url=os.getenv("LLM_BASE_URL", "").strip() or "https://api.deepseek.com/v1",
-            timeout=60.0,
-            max_retries=0,
-        ) as client:
-            result = client.chat.completions.create(
-                model=os.getenv("LLM_MODEL", "").strip() or DEFAULT_CONFIG.llm_model,
-                messages=messages,
-                temperature=0.3,
-                max_tokens=2048,
-            )
-    except AuthenticationError:
-        raise ChatError(502, "模型认证失败，请检查后端 LLM_API_KEY 配置。") from None
-    except RateLimitError:
-        raise ChatError(429, "模型请求受限或余额不足，请稍后重试并检查模型账户。") from None
-    except APITimeoutError:
-        raise ChatError(504, "模型响应超时，请稍后重试。") from None
-    except APIConnectionError:
-        raise ChatError(502, "无法连接模型服务，请检查后端网络和 LLM_BASE_URL。") from None
-    except APIStatusError as exc:
-        logger.warning("Model API returned HTTP %s", exc.status_code)
-        raise ChatError(502, "模型调用失败，请检查 LLM_MODEL、接口地址及模型账户权限。") from None
-
-    reply = result.choices[0].message.content if result.choices else None
-    if not reply or not reply.strip():
-        raise ChatError(502, "模型返回了空回复，请重试。")
-    return reply
+    # 最小 Agent 循环：读取本轮输入与历史 -> 返回占位回复 -> 前端续接下一轮。
+    # 这里原本组装 system prompt、携带历史调用大模型；现已移除，改为固定回复。
+    return PLACEHOLDER_REPLY
 
 
 class ChatHandler(BaseHTTPRequestHandler):
